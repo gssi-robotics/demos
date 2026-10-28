@@ -24,6 +24,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchContext, LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch.actions import IncludeLaunchDescription
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
@@ -111,7 +112,8 @@ def spawn_robot(context: LaunchContext, namespace: LaunchConfiguration):
                 [FindPackageShare('leo_teleop'),
                  'launch', 'key_teleop.launch.xml']
             )
-        )
+        ),
+        condition=IfCondition(LaunchConfiguration("teleop")),
     )
 
     return [
@@ -154,6 +156,9 @@ def generate_launch_description():
           y_arg,
           z_arg,
           name_argument,
+          DeclareLaunchArgument("use_sim_time", default_value="True"),
+          DeclareLaunchArgument("teleop", default_value="True",
+                                description="Open keyboard control in xterm"),
           OpaqueFunction(function=spawn_robot, args=[namespace])
         ]
     )

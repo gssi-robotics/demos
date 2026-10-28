@@ -28,6 +28,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import UnlessCondition
 from launch_ros.actions import Node
 
 
@@ -48,6 +49,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_project_worlds, "launch", "display.launch.py")
         ),
+        launch_arguments={"headless": LaunchConfiguration("headless")}.items(),
     )
 
     spawn_robot = IncludeLaunchDescription(
@@ -55,7 +57,10 @@ def generate_launch_description():
             os.path.join(pkg_project_gazebo, "launch",
                          "spawn_leo_robot.launch.py")
         ),
-        launch_arguments={"robot_ns": LaunchConfiguration("robot_ns"),}.items(),
+        launch_arguments={
+            "robot_ns": LaunchConfiguration("robot_ns"),
+            "teleop": LaunchConfiguration("teleop"),
+        }.items(),
     )
 
     # Bridge ROS topics and Gazebo messages for establishing communication
@@ -63,8 +68,9 @@ def generate_launch_description():
         package="ros_gz_bridge",
         executable="parameter_bridge",
         name="clock_bridge",
+        condition=UnlessCondition(LaunchConfiguration("external_clock_bridge")),
         arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock]",
+            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
         ],
         parameters=[
             {
@@ -77,6 +83,9 @@ def generate_launch_description():
     return LaunchDescription(
         [
             robot_ns,
+            DeclareLaunchArgument("headless", default_value="False"),
+            DeclareLaunchArgument("teleop", default_value="True"),
+            DeclareLaunchArgument("external_clock_bridge", default_value="False"),
             gz_sim,
             spawn_robot,
             topic_bridge,

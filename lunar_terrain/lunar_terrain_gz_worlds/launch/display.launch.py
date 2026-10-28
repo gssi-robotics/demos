@@ -20,6 +20,7 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import launch_ros
 import os
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
@@ -30,19 +31,24 @@ def generate_launch_description():
     world = LaunchConfiguration('world')
 
     world_path = PathJoinSubstitution([pkg_share, "models", "lunar_terrain", "world", world])
+    model_path = os.path.join(get_package_share_directory("simulation"),
+                             "models", "lunar_terrain", "models")
 
     # gazebo have to be executed with shell=False, or test_launch won't terminate it
     #   see: https://github.com/ros2/launch/issues/545
     # This code is form taken ros_gz_sim and modified to work with shell=False
     #   see: https://github.com/gazebosim/ros_gz/blob/ros2/ros_gz_sim/launch/gz_sim.launch.py.in
-    gz_env = {'GZ_SIM_SYSTEM_PLUGIN_PATH':
+    gz_env = {'GZ_SIM_RESOURCE_PATH':
+           os.pathsep.join(filter(None, [model_path, os.environ.get("GZ_SIM_RESOURCE_PATH", "")])),
+           'GZ_SIM_SYSTEM_PLUGIN_PATH':
            ':'.join([os.environ.get('GZ_SIM_SYSTEM_PLUGIN_PATH', default=''),
                      os.environ.get('LD_LIBRARY_PATH', default='')]),
            'GZ_PARTITION': os.environ.get('GZ_PARTITION', default='')}
     gazebo = [
         ExecuteProcess(
             condition=launch.conditions.IfCondition(headless),
-            cmd=['ruby', FindExecutable(name="gz"), 'sim',  '-r', '-v', gz_verbosity, '-s', '--headless-rendering', world_path],
+            cmd=['ruby', FindExecutable(name="gz"), 'sim', '-s', '-r', '-v', gz_verbosity,
+                 '--render-engine-server', 'ogre2', world_path],
             output='screen',
             additional_env=gz_env, # type: ignore
             shell=False,

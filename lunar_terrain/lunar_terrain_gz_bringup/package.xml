@@ -17,7 +17,8 @@
   <exec_depend>tf2_ros</exec_depend>
 
   <exec_depend>leo_description</exec_depend>
-  <exec_depend>lunar_terrain_gz_plugins</exec_depend>
+  <exec_depend>lunar_sun_gz_plugin</exec_depend>
+  <exec_depend>leo_teleop</exec_depend>
   <exec_depend>leo_gz_plugins</exec_depend>
   <exec_depend>lunar_terrain_gz_worlds</exec_depend>
 

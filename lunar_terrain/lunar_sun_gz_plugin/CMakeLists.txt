@@ -6,6 +6,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 
 add_library(lunar_sun_gz_plugin SHARED
 src/lunar_sun.cpp)
@@ -14,8 +15,9 @@ find_package(gz_sim_vendor REQUIRED)
 find_package(gz-sim REQUIRED)
 set(GZ_SIM_VER ${gz-sim_VERSION_MAJOR})
 
-find_package(gz-plugin2 REQUIRED COMPONENTS register)
-set(GZ_PLUGIN_VER ${gz-plugin2_VERSION_MAJOR})
+find_package(gz_plugin_vendor REQUIRED)
+find_package(gz-plugin REQUIRED COMPONENTS register)
+set(GZ_PLUGIN_VER ${gz-plugin_VERSION_MAJOR})
 
 target_link_libraries(lunar_sun_gz_plugin
   gz-sim${GZ_SIM_VER}::gz-sim${GZ_SIM_VER}
@@ -23,6 +25,8 @@ target_link_libraries(lunar_sun_gz_plugin
 )
 
 set_property(TARGET lunar_sun_gz_plugin PROPERTY CXX_STANDARD 17)
+ament_target_dependencies(lunar_sun_gz_plugin ament_index_cpp)
+install(FILES horizons_az_el.csv DESTINATION share/${PROJECT_NAME})
 
 install(
   TARGETS

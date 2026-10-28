@@ -27,6 +27,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 
 class LunarSun : public gz::sim::System,
@@ -37,7 +38,8 @@ class LunarSun : public gz::sim::System,
 
 
   // Joint entities
-  gz::sim::Entity actorEntity, lightEntity;
+  gz::sim::Entity actorEntity{gz::sim::kNullEntity};
+  gz::sim::Entity lightEntity{gz::sim::kNullEntity};
 
   // Whether the system has been properly configured
   bool configured_{false};
@@ -52,7 +54,26 @@ public:
     this->actorEntity =
       ecm.EntityByComponents(gz::sim::components::Name("animated_sun"));
 
-    LoadCSV("/home/spaceros-user/demos_ws/src/lunar_sun_gz_plugin/horizons_az_el.csv");
+    this->lightEntity = ecm.EntityByComponents(gz::sim::components::Name("sunlight"));
+    if (this->lightEntity != gz::sim::kNullEntity &&
+        !ecm.Component<gz::sim::components::Light>(this->lightEntity)) {
+      this->lightEntity = gz::sim::kNullEntity;
+    }
+    if (this->actorEntity == gz::sim::kNullEntity) {
+      std::cerr << "LunarSun: animated_sun actor was not found\n";
+      return;
+    }
+    try {
+      LoadCSV(ament_index_cpp::get_package_share_directory("lunar_sun_gz_plugin") +
+              "/horizons_az_el.csv");
+    } catch (const std::exception &error) {
+      std::cerr << "LunarSun: failed to load trajectory: " << error.what() << '\n';
+      return;
+    }
+    if (this->trajectory.empty()) {
+      std::cerr << "LunarSun: trajectory is empty\n";
+      return;
+    }
 
     gz::math::Pose3d startPose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     // Position the light above the ground
@@ -66,6 +87,9 @@ public:
 
   void Update(const gz::sim::UpdateInfo& info,
         gz::sim::EntityComponentManager& ecm) override {
+    if (!configured_ || info.paused) {
+      return;
+    }
     // Get the current simulation time
     this->currentSimTime = info.simTime;
 
@@ -138,10 +162,12 @@ public:
       node.Request("/world/dem_heightmap/light_config", lightMsg,
                    timeout, res, result);
 
-      ecm.SetChanged(this->lightEntity, gz::sim::components::Pose::typeId,
+      if (this->lightEntity != gz::sim::kNullEntity) {
+        ecm.SetChanged(this->lightEntity, gz::sim::components::Pose::typeId,
              gz::sim::ComponentState::PeriodicChange);
       ecm.SetChanged(this->lightEntity, gz::sim::components::Light::typeId,
              gz::sim::ComponentState::PeriodicChange);
+      }
     } else {
       return;
     }

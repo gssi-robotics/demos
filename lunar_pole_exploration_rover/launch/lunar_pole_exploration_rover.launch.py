@@ -21,6 +21,7 @@ from launch_ros.actions import Node, SetParameter
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.event_handlers import OnProcessExit, OnExecutionComplete
+from launch.conditions import IfCondition, UnlessCondition
 import os
 from os import environ
 
@@ -34,6 +35,9 @@ import xacro
 # rm -rf build install log && colcon build && . install/setup.bash
 
 def generate_launch_description():
+
+    headless = LaunchConfiguration('headless')
+    external_clock_bridge = LaunchConfiguration('external_clock_bridge')
 
     lunar_pole_exploration_rover_demos_path = get_package_share_directory('lunar_pole_exploration_rover')
     lunar_pole_exploration_rover_models_path = get_package_share_directory('simulation')
@@ -79,7 +83,16 @@ def generate_launch_description():
         cmd=['gz sim', lunar_pole_world_model, '-r'],
         output='screen',
         additional_env=env,
-        shell=True
+        shell=True,
+        condition=UnlessCondition(headless),
+    )
+
+    start_world_headless = ExecuteProcess(
+        cmd=['gz sim -s', lunar_pole_world_model, '-r'],
+        output='screen',
+        additional_env=env,
+        shell=True,
+        condition=IfCondition(headless),
     )
 
     robot_state_publisher = Node(
@@ -93,7 +106,6 @@ def generate_launch_description():
             package='ros_gz_bridge',
             executable='parameter_bridge',
             arguments=[
-                '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
                 '/aftcam_left/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
                 '/aftcam_right/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
                 '/navcam_left/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
@@ -120,6 +132,14 @@ def generate_launch_description():
                 '/model/lunar_pole_exploration_rover/battery/rechargeable_battery/total_power_consumption@std_msgs/msg/Float32[gz.msgs.Float',
             ],
             output='screen')
+
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        output='screen',
+        condition=UnlessCondition(external_clock_bridge),
+    )
 
     navcam_left_image_bridge = Node(
             package='ros_gz_image',
@@ -224,8 +244,11 @@ def generate_launch_description():
 
 
     return LaunchDescription([
+        DeclareLaunchArgument('headless', default_value='false'),
+        DeclareLaunchArgument('external_clock_bridge', default_value='false'),
         SetParameter(name='use_sim_time', value=True),
         start_world,
+        start_world_headless,
         robot_state_publisher,
         spawn,
         mast_node,
@@ -233,6 +256,7 @@ def generate_launch_description():
         run_node,
         odom_node,
         ros_gz_bridge,
+        clock_bridge,
         navcam_left_image_bridge,
         navcam_right_image_bridge,
         aftcam_left_image_bridge,
